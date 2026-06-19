@@ -37,3 +37,12 @@ As chaves de API ficam **somente no `localStorage` do navegador** — nunca no a
 ## Privacidade
 
 As chaves de API são guardadas apenas no navegador. O proxy apenas repassa a requisição com o cabeçalho `Authorization` enviado pelo editor — não armazena nada.
+
+## Licença
+
+© 2026 Helio Arreche (NetoNetoArreche). **Todos os direitos reservados.**
+
+Software proprietário. **É proibido vender, alterar, criar obras derivadas ou
+redistribuir** este projeto, no todo ou em parte, sem autorização prévia e por
+escrito do autor. O uso é permitido apenas para fins pessoais e não comerciais.
+Veja o arquivo [LICENSE](LICENSE) para os termos completos.

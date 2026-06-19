@@ -1358,6 +1358,9 @@ function renderInspector(){
   bDup.onclick=()=>{data.slides.splice(current+1,0,JSON.parse(JSON.stringify(s)));current++;renderAll();};
   bDel.onclick=()=>{if(data.slides.length<=1){toast('Precisa de pelo menos 1 slide');return;}data.slides.splice(current,1);current=Math.max(0,current-1);renderAll();};
   acts.appendChild(bAdd);acts.appendChild(bDup);acts.appendChild(bDel);insp.appendChild(acts);
+  const dlSlide=el('button','btn','<svg class="uimi" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>Baixar este slide (PNG)');
+  dlSlide.style.width='100%';dlSlide.style.marginTop='8px';dlSlide.onclick=()=>downloadSlidePNG(current,dlSlide);
+  insp.appendChild(dlSlide);
   insp.appendChild(el('div','divider'));
   const upd=()=>{renderMain();renderRail();};
   const set=k=>v=>{s[k]=v;upd();};
@@ -1367,6 +1370,14 @@ function renderInspector(){
     edBtn.style.width='100%';edBtn.disabled=!s.bg_uri;edBtn.onclick=()=>openAIModal('edit');insp.appendChild(edBtn);
     const reBtn=el('button','btn ghostbtn','<svg class="uimi" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 4.6L18.5 9.5l-4.6 1.9L12 16l-1.9-4.6L5.5 9.5l4.6-1.9z"/></svg>Gerar outra capa (nova)');
     reBtn.style.width='100%';reBtn.style.margin='6px 0';reBtn.onclick=()=>openAIModal('create');insp.appendChild(reBtn);
+    const dlBtn=el('button','btn','<svg class="uimi" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>Baixar imagem (PNG)');
+    dlBtn.style.width='100%';dlBtn.disabled=!s.bg_uri;
+    dlBtn.onclick=async()=>{
+      let uri=s.bg_uri;if(!uri){toast('Este slide ainda não tem imagem');return;}
+      if(/^https?:/i.test(uri)){const old=dlBtn.textContent;dlBtn.disabled=true;dlBtn.textContent='Baixando…';try{uri=await fetchToDataURL(uri);}catch(e){}dlBtn.textContent=old;dlBtn.disabled=false;}
+      downloadURI(uri,'imagem-slide-'+String(current+1).padStart(2,'0')+'.png');toast('Imagem baixada ✓');
+    };
+    insp.appendChild(dlBtn);
     insp.appendChild(el('div','divider'));
     bgPanel(insp,s);
     fundoPanel(insp,s);
@@ -1565,6 +1576,28 @@ function waitImgs(node){
   return Promise.all(imgs.map(im=>(im.complete&&im.naturalWidth)?Promise.resolve():new Promise(res=>{
     const done=()=>res();im.addEventListener('load',done,{once:true});im.addEventListener('error',done,{once:true});setTimeout(done,5000);
   })));
+}
+function downloadURI(uri,name){const a=el('a');a.download=name;a.href=uri;document.body.appendChild(a);a.click();a.remove();}
+// Renderiza UM slide em PNG (mesmo pipeline do export em lote) e devolve o dataURL.
+async function renderSlideToPNG(i){
+  const [W,H]=dims();const total=data.slides.length;const host=$('#exportHost');
+  applyFonts(); try{ if(document.fonts&&document.fonts.ready) await document.fonts.ready; }catch(e){}
+  const sl=data.slides[i];
+  if(sl.bg_uri&&/^https?:/i.test(sl.bg_uri)){try{sl.bg_uri=await fetchToDataURL(sl.bg_uri);}catch(e){}}
+  host.innerHTML='';const node=buildSlide(sl,i,total);host.appendChild(node);
+  await waitImgs(node); await new Promise(r=>setTimeout(r,90));
+  let durl=null;
+  try{const canvas=await html2canvas(node,{width:W,height:H,scale:2,backgroundColor:null,useCORS:true,allowTaint:false,imageTimeout:8000,logging:false});durl=canvas.toDataURL('image/png');}catch(e){console.error('Falha ao renderizar slide',e);}
+  host.innerHTML='';
+  return durl;
+}
+async function downloadSlidePNG(i,btn){
+  const old=btn?btn.textContent:'';if(btn){btn.disabled=true;btn.textContent='Renderizando…';}
+  try{
+    const durl=await renderSlideToPNG(i);
+    if(durl){downloadURI(durl,'slide-'+String(i+1).padStart(2,'0')+'.png');toast('Slide '+(i+1)+' baixado ✓');}
+    else toast('Não consegui renderizar este slide');
+  }finally{ if(btn){btn.disabled=false;btn.textContent=old;} }
 }
 $('#exportBtn').onclick=async function(){
   const btn=this;btn.disabled=true;const old=btn.textContent;
